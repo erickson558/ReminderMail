@@ -1,0 +1,38 @@
+# =============================================================================
+# .gitignore para ReminderMail
+# =============================================================================
+
+# ── Build artifacts de PyInstaller ──
+build/
+dist/
+*.spec.bak
+__pycache__/
+*.py[cod]
+*.pyo
+
+# ── Ejecutables compilados ──
+# Descomentar si NO quieres versionar el .exe (recomendado para repos grandes)
+# *.exe
+
+# ── Configuración con datos sensibles ──
+# config.json contiene correos de destinatarios y potencialmente contraseñas SMTP.
+# Considera usar config.json.example (sin credenciales) y agregar config.json aquí.
+# config.json
+
+# ── Entornos virtuales ──
+venv/
+.venv/
+env/
+.env/
+
+# ── IDEs ──
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ── Logs ──
+*.log
+logs/

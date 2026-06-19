@@ -1,0 +1,11 @@
+# ReminderMail - Dependencias Python
+# Instalar con: pip install -r requirements.txt
+
+# COM Automation para Outlook (solo Windows, método COM)
+pywin32>=306
+
+# PyInstaller para compilar a .exe (solo para builds)
+pyinstaller>=6.0
+
+# Nota: smtplib, tkinter, json, os, sys, threading, webbrowser
+# son parte de la librería estándar de Python y no requieren instalación.
