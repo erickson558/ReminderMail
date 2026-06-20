@@ -96,8 +96,23 @@ def send_email_com(
 
     # ── Crear y enviar el correo vía Outlook COM Automation ──
     outlook = win32.Dispatch('Outlook.Application')   # Obtener instancia de Outlook
-    mail = outlook.CreateItem(0)                       # 0 = olMailItem (correo electrónico)
-    mail.To = ";".join(recipients)                     # Múltiples destinatarios separados por ";"
+    mail = outlook.CreateItem(0)                      # 0 = olMailItem (correo electrónico)
+
+    unresolved_recipients = []
+    for email in recipients:
+        recipient = mail.Recipients.Add(email)
+        if not recipient.Resolve():
+            unresolved_recipients.append(email)
+
+    if unresolved_recipients:
+        unresolved_list = ", ".join(unresolved_recipients)
+        raise ValueError(
+            "Outlook no pudo resolver estos destinatarios: "
+            f"{unresolved_list}. Verifique las direcciones o use SMTP directo."
+        )
+
+    # Actualizar el encabezado visible To para reflejar la lista final usada.
+    mail.To = "; ".join(recipients)
     mail.Subject = subject
     mail.Body = body
     mail.Send()                                        # Encolar el correo en la bandeja de salida
