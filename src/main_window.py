@@ -12,7 +12,7 @@ import json
 import os
 import sys
 
-from src.config_manager import load_config, save_config
+from src.config_manager import load_config, normalize_recipients, save_config
 from src.email_service import send_email
 
 # ── URL del botón "Cómprame una cerveza" (PayPal Donate) ──
@@ -406,7 +406,7 @@ class ReminderMailApp:
             port = 587
 
         return {
-            "destinatarios":  list(self.listbox_destinatarios.get(0, tk.END)),
+            "destinatarios":  normalize_recipients(list(self.listbox_destinatarios.get(0, tk.END))),
             "asunto":         self.entry_asunto.get().strip(),
             "cuerpo":         self.text_cuerpo.get("1.0", tk.END).strip(),
             "metodo_envio":   self.send_method_var.get(),
@@ -416,6 +416,26 @@ class ReminderMailApp:
             "smtp_password":  self.entry_smtp_pass.get(),  # Sin strip: la contraseña puede tener espacios
             "idioma":         self.lang
         }
+
+    def _reload_config_from_disk_if_clean(self):
+        """
+        Recarga config.json si la UI no tiene cambios pendientes.
+
+        Esto evita perder destinatarios agregados manualmente al archivo cuando
+        la aplicación sigue abierta con una copia antigua en memoria.
+        """
+        current_config = self._get_config_from_ui()
+        if current_config != self.config:
+            return
+
+        disk_config = load_config()
+        if disk_config == self.config:
+            return
+
+        self.config = disk_config
+        self.send_method_var.set(disk_config.get("metodo_envio", "com"))
+        self._populate_fields_from(disk_config)
+        self._toggle_smtp_fields()
 
     def _toggle_smtp_fields(self):
         """
@@ -501,6 +521,7 @@ class ReminderMailApp:
         El envío se hace en un thread separado para que la ventana de Tkinter
         no se congele mientras se establece la conexión SMTP o se habla con Outlook.
         """
+        self._reload_config_from_disk_if_clean()
         config = self._get_config_from_ui()
         destinatarios = config["destinatarios"]
 
