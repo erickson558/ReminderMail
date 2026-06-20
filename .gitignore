@@ -15,9 +15,9 @@ __pycache__/
 # *.exe
 
 # ── Configuración con datos sensibles ──
-# config.json contiene correos de destinatarios y potencialmente contraseñas SMTP.
-# Considera usar config.json.example (sin credenciales) y agregar config.json aquí.
-# config.json
+# config.json contiene correos de destinatarios y contraseñas SMTP.
+# Usar config.json.example como plantilla (sin credenciales).
+config.json
 
 # ── Entornos virtuales ──
 venv/

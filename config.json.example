@@ -1,0 +1,13 @@
+{
+    "destinatarios": [
+        "ejemplo@correo.com"
+    ],
+    "asunto": "Recordatorio",
+    "cuerpo": "Buen día, este es un correo de recordatorio.",
+    "metodo_envio": "smtp",
+    "smtp_servidor": "smtp-mail.outlook.com",
+    "smtp_puerto": 587,
+    "smtp_usuario": "tu_correo@hotmail.com",
+    "smtp_password": "",
+    "idioma": "es"
+}
