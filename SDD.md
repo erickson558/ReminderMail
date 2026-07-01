@@ -1,7 +1,7 @@
 # SDD - Spec Driven Development: ReminderMail
 
-**Versión**: 2.0  
-**Fecha**: 2026-06-19  
+**Versión**: 2.1  
+**Fecha**: 2026-07-01  
 **Estado**: Implementado
 
 ---
@@ -45,11 +45,17 @@ gestionar destinatarios, asunto y cuerpo del correo mediante una interfaz gráfi
 - Este comportamiento permite uso como tarea programada desatendida
 
 ### RF-06: Auto-cierre tras envío exitoso
-- La aplicación DEBE cerrarse automáticamente 60 segundos después de un envío exitoso
+- La aplicación DEBE permitir configurar desde la UI cuántos segundos esperar antes del auto-cierre
+- El countdown configurado DEBE persistirse en config.json
+- La aplicación DEBE cerrarse automáticamente tras el countdown configurado después de un envío exitoso
 - El usuario PUEDE cerrar manualmente antes de que se cumpla el tiempo
 
+### RF-06A: Countdown visible en barra de estado
+- Tras un envío exitoso, la barra de estado DEBE mostrar el countdown en segundos
+- El countdown DEBE decrementar visualmente segundo a segundo (ej: 60, 59, 58...)
+
 ### RF-07: Persistencia de configuración
-- Toda la configuración (destinatarios, asunto, cuerpo, método, SMTP) DEBE guardarse
+- Toda la configuración (destinatarios, asunto, cuerpo, countdown, método, SMTP) DEBE guardarse
 - La configuración se guarda en config.json junto al ejecutable
 - Al iniciar, la configuración guardada DEBE cargarse automáticamente
 
@@ -105,6 +111,8 @@ gestionar destinatarios, asunto y cuerpo del correo mediante una interfaz gráfi
 main.py → ReminderMailApp(root) → _enviar_correo()
                                  → threading.Thread → send_email(config)
                                                     → send_email_smtp() | send_email_com()
+                                 → _start_close_countdown(segundos_cierre)
+                                 → _tick_close_countdown() → _salir()
                                  → _save_config_ui() → save_config(config)
                                  → load_config() ← config.json
                                  → load_locale(lang) ← locales/{lang}.json
@@ -121,7 +129,7 @@ main.py → ReminderMailApp(root) → _enviar_correo()
 2. La app carga config.json (destinatarios, asunto, cuerpo, credenciales)
 3. 1 segundo después del inicio, se dispara el auto-envío
 4. Se envía el correo (SMTP o COM)
-5. Tras éxito, la app se cierra en 60 segundos
+5. Tras éxito, la app inicia el countdown configurado y se cierra al llegar a 0
 
 ### CU-02: Configuración inicial de SMTP para Hotmail
 **Actor**: Usuario
@@ -141,6 +149,14 @@ main.py → ReminderMailApp(root) → _enviar_correo()
 3. El correo se agrega a la lista
 4. Usuario guarda configuración
 
+### CU-04: Configurar countdown de auto-cierre
+**Actor**: Usuario
+**Flujo**:
+1. Usuario ingresa la cantidad de segundos en la sección de auto-cierre
+2. Hace clic en "Guardar config"
+3. El valor se persiste en config.json
+4. Después de un envío exitoso, la barra de estado muestra el countdown y decrece hasta cerrar la app
+
 ---
 
 ## 6. Plan de Testing
@@ -152,10 +168,11 @@ main.py → ReminderMailApp(root) → _enviar_correo()
 | T-03  | Envío sin destinatarios                     | Mensaje de error en barra       |
 | T-04  | Envío sin contraseña SMTP                   | Solicitar contraseña            |
 | T-05  | Cambio de idioma ES→EN preserva datos       | Campos mantienen sus valores    |
-| T-06  | Auto-cierre tras envío exitoso              | App se cierra en ~60 segundos   |
-| T-07  | config.json se actualiza tras guardar       | Archivo JSON tiene nuevos datos |
-| T-08  | .exe se ejecuta sin consola                 | Solo ventana gráfica            |
-| T-09  | Botón cerveza abre PayPal                   | Se abre el navegador            |
+| T-06  | Countdown visible tras envío exitoso        | Barra muestra 60, 59, 58...     |
+| T-07  | Countdown configurable desde la UI          | Valor persiste en config.json   |
+| T-08  | Auto-cierre tras envío exitoso              | App se cierra al llegar a 0     |
+| T-09  | .exe se ejecuta sin consola                 | Solo ventana gráfica            |
+| T-10  | Botón cerveza abre PayPal                   | Se abre el navegador            |
 
 ---
 
@@ -165,3 +182,4 @@ main.py → ReminderMailApp(root) → _enviar_correo()
 |---------|------------|-----------------------------------------------------|
 | 1.0     | anterior   | Versión original - solo Outlook COM, un archivo     |
 | 2.0     | 2026-06-19 | Soporte SMTP (Hotmail fix), multi-idioma, arquitectura modular, threading, botón donación |
+| 2.1     | 2026-07-01 | Countdown configurable y visible en barra de estado |

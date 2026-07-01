@@ -6,6 +6,9 @@
     "subject": "Asunto",
     "body": "Cuerpo del correo",
     "send_method": "Método de envío",
+    "close_delay": "Auto-cierre",
+    "close_delay_seconds": "Cerrar después de enviar:",
+    "seconds_suffix": "segundos",
     "com_method": "Outlook COM (escritorio, requiere Outlook instalado)",
     "smtp_method": "SMTP directo (Hotmail, Gmail, Office 365...)",
     "account_type": "Tipo de cuenta:",
@@ -27,7 +30,7 @@
     "msg_no_smtp_user": "Ingrese su correo electrónico en el campo Usuario/Email.",
     "msg_no_smtp_pass": "Ingrese su contraseña en la sección SMTP.",
     "msg_sending": "Enviando correo, por favor espere...",
-    "msg_email_sent": "✓ Correo enviado exitosamente. La aplicación se cerrará en 1 minuto.",
+    "msg_email_sent_countdown": "✓ Correo enviado exitosamente. La aplicación se cerrará en {seconds} s.",
     "msg_email_error": "✗ Error al enviar: {error}",
     "msg_config_saved": "✓ Configuración guardada correctamente.",
     "msg_config_error": "✗ Error al guardar configuración: {error}"

@@ -5,9 +5,48 @@
 # =============================================================================
 
 import smtplib
+import re
+from datetime import datetime
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from typing import List
+from typing import List, Optional
+
+MONTH_NAMES = {
+    "es": [
+        "enero", "febrero", "marzo", "abril", "mayo", "junio",
+        "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"
+    ],
+    "en": [
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December"
+    ],
+}
+
+MONTH_PLACEHOLDER_PATTERN = re.compile(r"\[\s*mes actual\s*\]", re.IGNORECASE)
+YEAR_PLACEHOLDER_PATTERN = re.compile(
+    r"\[\s*a(?:ñ|n)o en n(?:u|ú)mero\s*\]",
+    re.IGNORECASE
+)
+
+
+def render_date_placeholders(text: str, lang: str = "es", reference_date: Optional[datetime] = None) -> str:
+    """
+    Reemplaza variables de fecha en un texto usando la fecha local actual del equipo.
+
+    Variables soportadas:
+    - [Mes Actual]
+    - [año en numero]
+    """
+    if not text:
+        return text
+
+    current_date = reference_date or datetime.now()
+    normalized_lang = str(lang or "es").split("-")[0].lower()
+    month_names = MONTH_NAMES.get(normalized_lang, MONTH_NAMES["es"])
+    month_name = month_names[current_date.month - 1]
+    rendered_text = MONTH_PLACEHOLDER_PATTERN.sub(month_name, text)
+    rendered_text = YEAR_PLACEHOLDER_PATTERN.sub(str(current_date.year), rendered_text)
+    return rendered_text
 
 
 def send_email_smtp(
@@ -136,6 +175,9 @@ def send_email(config: dict, recipients: List[str], subject: str, body: str) -> 
         Exception:  Si el envío falla (propagada desde send_email_smtp/send_email_com)
     """
     method = config.get("metodo_envio", "com")
+    lang = config.get("idioma", "es")
+    rendered_subject = render_date_placeholders(subject, lang=lang)
+    rendered_body = render_date_placeholders(body, lang=lang)
 
     if method == "smtp":
         # ── Validar campos obligatorios de SMTP antes de intentar conectar ──
@@ -153,13 +195,13 @@ def send_email(config: dict, recipients: List[str], subject: str, body: str) -> 
             username=smtp_user,
             password=smtp_password,
             recipients=recipients,
-            subject=subject,
-            body=body
+            subject=rendered_subject,
+            body=rendered_body
         )
 
     elif method == "com":
         # ── Modo Outlook COM: no requiere credenciales adicionales ──
-        send_email_com(recipients=recipients, subject=subject, body=body)
+        send_email_com(recipients=recipients, subject=rendered_subject, body=rendered_body)
 
     else:
         raise ValueError(f"Método de envío desconocido: '{method}'. Use 'smtp' o 'com'.")

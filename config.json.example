@@ -4,6 +4,7 @@
     ],
     "asunto": "Recordatorio",
     "cuerpo": "Buen día, este es un correo de recordatorio.",
+    "segundos_cierre": 60,
     "metodo_envio": "smtp",
     "smtp_servidor": "smtp-mail.outlook.com",
     "smtp_puerto": 587,

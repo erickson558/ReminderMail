@@ -29,13 +29,16 @@ def main():
     try:
         if getattr(sys, 'frozen', False):
             # Modo ejecutable: el ícono está junto al .exe
-            icon_path = os.path.join(os.path.dirname(sys.executable), "reminder.ico")
+            base_dir = os.path.dirname(sys.executable)
         else:
             # Modo script: el ícono está en la raíz del proyecto
-            icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reminder.ico")
+            base_dir = os.path.dirname(os.path.abspath(__file__))
 
-        if os.path.exists(icon_path):
-            root.iconbitmap(icon_path)
+        for icon_name in ("reminder.ico", "reminder_electronicclock_recordatori_6071.ico"):
+            icon_path = os.path.join(base_dir, icon_name)
+            if os.path.exists(icon_path):
+                root.iconbitmap(icon_path)
+                break
     except Exception:
         pass  # Si falla la asignación de ícono, continuar normalmente
 

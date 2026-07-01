@@ -6,6 +6,9 @@
     "subject": "Subject",
     "body": "Email body",
     "send_method": "Send method",
+    "close_delay": "Auto close",
+    "close_delay_seconds": "Close after send:",
+    "seconds_suffix": "seconds",
     "com_method": "Outlook COM (desktop, requires Outlook installed)",
     "smtp_method": "Direct SMTP (Hotmail, Gmail, Office 365...)",
     "account_type": "Account type:",
@@ -27,7 +30,7 @@
     "msg_no_smtp_user": "Enter your email address in the User/Email field.",
     "msg_no_smtp_pass": "Enter your password in the SMTP section.",
     "msg_sending": "Sending email, please wait...",
-    "msg_email_sent": "✓ Email sent successfully. The application will close in 1 minute.",
+    "msg_email_sent_countdown": "✓ Email sent successfully. The application will close in {seconds} s.",
     "msg_email_error": "✗ Send error: {error}",
     "msg_config_saved": "✓ Configuration saved successfully.",
     "msg_config_error": "✗ Error saving configuration: {error}"
