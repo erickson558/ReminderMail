@@ -17,6 +17,7 @@ DEFAULT_CONFIG = {
     "destinatarios": [],               # Lista de correos destinatarios
     "asunto": "",                      # Asunto del correo recordatorio
     "cuerpo": "",                      # Cuerpo/texto del correo
+    "segundos_cierre": 60,            # Segundos de countdown antes del auto-cierre
     "metodo_envio": "com",             # Método: "com" (Outlook COM) o "smtp" (STARTTLS)
     "smtp_servidor": "smtp-mail.outlook.com",  # Servidor SMTP por defecto (Hotmail)
     "smtp_puerto": 587,                # Puerto STARTTLS estándar
@@ -54,6 +55,18 @@ def normalize_recipients(raw_recipients: Any) -> List[str]:
         normalized.append(email)
 
     return normalized
+
+
+def normalize_close_delay_seconds(raw_value: Any, default: int = 60) -> int:
+    """
+    Normaliza el countdown de auto-cierre para garantizar un entero >= 1.
+    """
+    try:
+        seconds = int(str(raw_value).strip())
+    except (TypeError, ValueError, AttributeError):
+        seconds = default
+
+    return max(1, seconds)
 
 
 def get_base_path() -> str:
@@ -97,6 +110,9 @@ def load_config() -> dict:
             config = DEFAULT_CONFIG.copy()
             config.update(saved)
             config["destinatarios"] = normalize_recipients(config.get("destinatarios", []))
+            config["segundos_cierre"] = normalize_close_delay_seconds(
+                config.get("segundos_cierre", DEFAULT_CONFIG["segundos_cierre"])
+            )
             return config
 
         except (json.JSONDecodeError, IOError, OSError):
@@ -123,6 +139,9 @@ def save_config(config: dict) -> tuple:
         config_to_save = DEFAULT_CONFIG.copy()
         config_to_save.update(config)
         config_to_save["destinatarios"] = normalize_recipients(config_to_save.get("destinatarios", []))
+        config_to_save["segundos_cierre"] = normalize_close_delay_seconds(
+            config_to_save.get("segundos_cierre", DEFAULT_CONFIG["segundos_cierre"])
+        )
         with open(config_path, "w", encoding="utf-8") as f:
             json.dump(config_to_save, f, indent=4, ensure_ascii=False)
         return True, None

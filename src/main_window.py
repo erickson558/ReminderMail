@@ -12,7 +12,12 @@ import json
 import os
 import sys
 
-from src.config_manager import load_config, normalize_recipients, save_config
+from src.config_manager import (
+    load_config,
+    normalize_close_delay_seconds,
+    normalize_recipients,
+    save_config,
+)
 from src.email_service import send_email
 
 # ── URL del botón "Cómprame una cerveza" (PayPal Donate) ──
@@ -85,10 +90,14 @@ class ReminderMailApp:
         self.lang = self.config.get("idioma", "es")                        # Idioma activo
         self.strings = load_locale(self.lang)                              # Strings traducidos
         self._auto_sent = False                                            # Bandera: ¿ya se hizo el auto-envío?
+        self._close_countdown_job = None                                   # ID del after() activo para countdown
+        self._close_countdown_remaining = None                             # Segundos pendientes para cerrar
+        self._last_countdown_displayed = None                              # Último valor mostrado en barra
 
         # ── Variables de Tkinter (se crean antes de _build_ui) ──
         self.send_method_var = tk.StringVar(value=self.config.get("metodo_envio", "com"))
         self.smtp_preset_var = tk.StringVar(value="Hotmail/Outlook.com")
+        self.close_delay_var = tk.StringVar(value=str(self.config.get("segundos_cierre", 60)))
 
         # ── Construir interfaz y poblar campos ──
         self._build_ui()
@@ -137,9 +146,10 @@ class ReminderMailApp:
         3. Sección de asunto
         4. Sección de cuerpo del correo
         5. Sección de método de envío (COM / SMTP con campos condicionales)
-        6. Botones de acción (Enviar, Guardar, Salir)
-        7. Botón "Cómprame una cerveza"
-        8. Barra de estado
+        6. Sección de auto-cierre
+        7. Botones de acción (Enviar, Guardar, Salir)
+        8. Botón "Cómprame una cerveza"
+        9. Barra de estado
         """
         self.root.title(self.t("title"))
         self.root.resizable(False, False)
@@ -299,7 +309,35 @@ class ReminderMailApp:
         )
         self._lbl_smtp_note.pack(anchor="w", pady=(3, 0))
 
-        # ── 6. BOTONES DE ACCIÓN ──
+        # ── 6. SECCIÓN DE AUTO-CIERRE ──
+        self._frame_close_delay = tk.LabelFrame(
+            self.root, text=self.t("close_delay"), padx=10, pady=5
+        )
+        self._frame_close_delay.pack(fill=tk.X, padx=10, pady=(5, 0))
+
+        row_close_delay = tk.Frame(self._frame_close_delay)
+        row_close_delay.pack(anchor="w")
+
+        self._lbl_close_delay = tk.Label(
+            row_close_delay, text=self.t("close_delay_seconds"), width=23, anchor="w"
+        )
+        self._lbl_close_delay.pack(side=tk.LEFT)
+
+        self.spinbox_close_delay = tk.Spinbox(
+            row_close_delay,
+            from_=1,
+            to=3600,
+            width=8,
+            textvariable=self.close_delay_var
+        )
+        self.spinbox_close_delay.pack(side=tk.LEFT, padx=(0, 8))
+
+        self._lbl_close_delay_hint = tk.Label(
+            row_close_delay, text=self.t("seconds_suffix"), anchor="w"
+        )
+        self._lbl_close_delay_hint.pack(side=tk.LEFT)
+
+        # ── 7. BOTONES DE ACCIÓN ──
         frame_buttons = tk.Frame(self.root)
         frame_buttons.pack(pady=10)
 
@@ -323,7 +361,7 @@ class ReminderMailApp:
         )
         self.btn_salir.pack(side=tk.LEFT, padx=5)
 
-        # ── 7. BOTÓN "CÓMPRAME UNA CERVEZA" ──
+        # ── 8. BOTÓN "CÓMPRAME UNA CERVEZA" ──
         # Abre el enlace de donación PayPal en el navegador predeterminado
         self._btn_beer = tk.Button(
             self.root,
@@ -336,7 +374,7 @@ class ReminderMailApp:
         )
         self._btn_beer.pack(pady=(0, 6))
 
-        # ── 8. BARRA DE ESTADO ──
+        # ── 9. BARRA DE ESTADO ──
         self.status_label = tk.Label(
             self.root, text="", bd=1,
             relief=tk.SUNKEN, anchor=tk.W, padx=5, font=("Segoe UI", 9)
@@ -386,6 +424,9 @@ class ReminderMailApp:
         self.entry_smtp_pass.delete(0, tk.END)
         self.entry_smtp_pass.insert(0, config.get("smtp_password", ""))
 
+        # ── Countdown de auto-cierre ──
+        self.close_delay_var.set(str(config.get("segundos_cierre", 60)))
+
         # ── Preseleccionar el tipo de cuenta según el servidor guardado ──
         for preset_name, preset_data in SMTP_PRESETS.items():
             if preset_data["server"] == saved_server:
@@ -405,10 +446,13 @@ class ReminderMailApp:
         except (ValueError, AttributeError):
             port = 587
 
+        close_delay_seconds = normalize_close_delay_seconds(self.close_delay_var.get())
+
         return {
             "destinatarios":  normalize_recipients(list(self.listbox_destinatarios.get(0, tk.END))),
             "asunto":         self.entry_asunto.get().strip(),
             "cuerpo":         self.text_cuerpo.get("1.0", tk.END).strip(),
+            "segundos_cierre": close_delay_seconds,
             "metodo_envio":   self.send_method_var.get(),
             "smtp_servidor":  self.entry_smtp_server.get().strip(),
             "smtp_puerto":    port,
@@ -476,6 +520,43 @@ class ReminderMailApp:
             color:   Color del texto ("green" éxito, "red" error, "blue" en proceso)
         """
         self.status_label.config(text=message, fg=color)
+
+    def _cancel_close_countdown(self):
+        """Cancela el countdown de auto-cierre si existe uno activo."""
+        if self._close_countdown_job is not None:
+            self.root.after_cancel(self._close_countdown_job)
+            self._close_countdown_job = None
+
+        self._close_countdown_remaining = None
+        self._last_countdown_displayed = None
+
+    def _start_close_countdown(self, seconds: int):
+        """
+        Inicia el countdown visible de auto-cierre en la barra de estado.
+        """
+        self._cancel_close_countdown()
+        self._close_countdown_remaining = max(1, int(seconds))
+        self._tick_close_countdown()
+
+    def _tick_close_countdown(self):
+        """
+        Actualiza la barra de estado cada segundo hasta cerrar la aplicación.
+        """
+        if self._close_countdown_remaining is None:
+            return
+
+        if self._close_countdown_remaining <= 0:
+            self._close_countdown_job = None
+            self._salir()
+            return
+
+        self._last_countdown_displayed = self._close_countdown_remaining
+        self._update_status(
+            self.t("msg_email_sent_countdown", seconds=self._close_countdown_remaining),
+            "green"
+        )
+        self._close_countdown_remaining -= 1
+        self._close_countdown_job = self.root.after(1000, self._tick_close_countdown)
 
     # =========================================================================
     # SECCIÓN: GESTIÓN DE DESTINATARIOS
@@ -575,13 +656,11 @@ class ReminderMailApp:
     def _on_send_success(self):
         """
         Callback ejecutado en el hilo principal después de un envío exitoso.
-        Actualiza la UI y programa el cierre automático en 60 segundos.
+        Actualiza la UI e inicia el cierre automático con countdown visible.
         """
-        self._update_status(self.t("msg_email_sent"), "green")
         # Guardar configuración automáticamente tras un envío exitoso
         self._save_config_ui(silent=True)
-        # Cerrar la aplicación después de 60 segundos (comportamiento original mantenido)
-        self.root.after(60000, self._salir)
+        self._start_close_countdown(self.config.get("segundos_cierre", 60))
 
     def _on_send_error(self, error_msg: str):
         """
@@ -665,10 +744,16 @@ class ReminderMailApp:
         # Recrear variables de Tkinter (se pierden al destruir widgets)
         self.send_method_var = tk.StringVar(value=current_config.get("metodo_envio", "com"))
         self.smtp_preset_var = tk.StringVar(value="Hotmail/Outlook.com")
+        self.close_delay_var = tk.StringVar(value=str(current_config.get("segundos_cierre", 60)))
         self.config = current_config
 
         self._build_ui()
         self._populate_fields_from(current_config)
+        if self._last_countdown_displayed is not None:
+            self._update_status(
+                self.t("msg_email_sent_countdown", seconds=self._last_countdown_displayed),
+                "green"
+            )
         # _auto_sent sigue siendo True si ya se envió → no re-dispara el auto-envío
 
     # =========================================================================
@@ -677,4 +762,5 @@ class ReminderMailApp:
 
     def _salir(self):
         """Cierra la aplicación destruyendo la ventana raíz de Tkinter."""
+        self._cancel_close_countdown()
         self.root.destroy()
